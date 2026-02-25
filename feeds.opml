@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<opml version="2.0">
+  <head>
+    <title>Newsboat Feeds Export</title>
+    <dateCreated>Wed, 25 Feb 2026 00:00:00 +0000</dateCreated>
+  </head>
+  <body>
+    <outline text="Personal Favorites" title="Personal Favorites">
+      <outline type="rss" text="Dave Winer - Scripting News" title="Dave Winer - Scripting News" xmlUrl="http://scripting.com/rss.xml" htmlUrl="http://scripting.com/rss.xml" category="tech" />
+      <outline type="rss" text="Allen Pike" title="Allen Pike" xmlUrl="https://www.allenpike.com/feed.xml" htmlUrl="https://www.allenpike.com/feed.xml" category="tech apple" />
+      <outline type="rss" text="Colossal" title="Colossal" xmlUrl="https://www.thisiscolossal.com/feed/" htmlUrl="https://www.thisiscolossal.com/feed/" category="art culture" />
+      <outline type="rss" text="Daring Fireball" title="Daring Fireball" xmlUrl="https://daringfireball.net/feeds/main" htmlUrl="https://daringfireball.net/feeds/main" category="tech apple" />
+      <outline type="rss" text="furbo.org (Craig Hockenberry)" title="furbo.org (Craig Hockenberry)" xmlUrl="https://furbo.org/feed/" htmlUrl="https://furbo.org/feed/" category="tech apple" />
+      <outline type="rss" text="inessential (Brent Simmons)" title="inessential (Brent Simmons)" xmlUrl="https://inessential.com/xml/rss.xml" htmlUrl="https://inessential.com/xml/rss.xml" category="tech apple" />
+      <outline type="rss" text="Julia Evans" title="Julia Evans" xmlUrl="https://jvns.ca/atom.xml" htmlUrl="https://jvns.ca/atom.xml" category="tech programming" />
+      <outline type="rss" text="kottke.org" title="kottke.org" xmlUrl="https://kottke.org/feed/" htmlUrl="https://kottke.org/feed/" category="culture tech" />
+      <outline type="rss" text="Manton Reece" title="Manton Reece" xmlUrl="https://www.manton.org/feed.json" htmlUrl="https://www.manton.org/feed.json" category="tech indie" />
+      <outline type="rss" text="Maurice Porter" title="Maurice Porter" xmlUrl="https://mauriceporter.com/feed/" htmlUrl="https://mauriceporter.com/feed/" category="tech" />
+      <outline type="rss" text="Michael Tsai" title="Michael Tsai" xmlUrl="https://mjtsai.com/blog/feed/" htmlUrl="https://mjtsai.com/blog/feed/" category="tech apple" />
+      <outline type="rss" text="NetNewsWire Blog" title="NetNewsWire Blog" xmlUrl="https://netnewswire.blog/feed.xml" htmlUrl="https://netnewswire.blog/feed.xml" category="tech rss" />
+      <outline type="rss" text="One Foot Tsunami" title="One Foot Tsunami" xmlUrl="https://onefoottsunami.com/feed/" htmlUrl="https://onefoottsunami.com/feed/" category="tech apple" />
+      <outline type="rss" text="Six Colors" title="Six Colors" xmlUrl="https://sixcolors.com/feed.xml" htmlUrl="https://sixcolors.com/feed.xml" category="tech apple" />
+    </outline>
+    <outline text="Tech &amp; Programming" title="Tech &amp; Programming">
+      <outline type="rss" text="Hacker News" title="Hacker News" xmlUrl="https://news.ycombinator.com/rss" htmlUrl="https://news.ycombinator.com/rss" category="tech news" />
+      <outline type="rss" text="Lobsters" title="Lobsters" xmlUrl="https://lobste.rs/rss" htmlUrl="https://lobste.rs/rss" category="tech programming" />
+      <outline type="rss" text="LWN.net" title="LWN.net" xmlUrl="https://lwn.net/headlines/rss" htmlUrl="https://lwn.net/headlines/rss" category="linux opensource" />
+      <outline type="rss" text="Ars Technica" title="Ars Technica" xmlUrl="https://arstechnica.com/feed/" htmlUrl="https://arstechnica.com/feed/" category="tech news" />
+      <outline type="rss" text="The Verge" title="The Verge" xmlUrl="https://www.theverge.com/rss/index.xml" htmlUrl="https://www.theverge.com/rss/index.xml" category="tech news" />
+      <outline type="rss" text="Changelog" title="Changelog" xmlUrl="https://changelog.com/feed" htmlUrl="https://changelog.com/feed" category="programming podcast" />
+      <outline type="rss" text="Drew DeVault" title="Drew DeVault" xmlUrl="https://drewdevault.com/blog/index.xml" htmlUrl="https://drewdevault.com/blog/index.xml" category="tech programming" />
+    </outline>
+    <outline text="AI &amp; Machine Learning - Major Providers" title="AI &amp; Machine Learning - Major Providers">
+      <outline type="rss" text="OpenAI Blog" title="OpenAI Blog" xmlUrl="https://openai.com/blog/rss/" htmlUrl="https://openai.com/blog/rss/" category="ai" />
+      <outline type="rss" text="Anthropic News" title="Anthropic News" xmlUrl="https://www.anthropic.com/news/rss.xml" htmlUrl="https://www.anthropic.com/news/rss.xml" category="ai" />
+      <outline type="rss" text="Google AI Blog" title="Google AI Blog" xmlUrl="https://blog.google/technology/ai/rss/" htmlUrl="https://blog.google/technology/ai/rss/" category="ai gemini" />
+      <outline type="rss" text="Google DeepMind" title="Google DeepMind" xmlUrl="https://deepmind.google/blog/rss.xml" htmlUrl="https://deepmind.google/blog/rss.xml" category="ai research" />
+      <outline type="rss" text="Ollama Blog" title="Ollama Blog" xmlUrl="https://ollama.com/blog/rss.xml" htmlUrl="https://ollama.com/blog/rss.xml" category="ai opensource" />
+      <outline type="rss" text="Meta AI" title="Meta AI" xmlUrl="https://ai.meta.com/blog/rss/" htmlUrl="https://ai.meta.com/blog/rss/" category="ai research" />
+      <outline type="rss" text="Mistral AI" title="Mistral AI" xmlUrl="https://mistral.ai/news/rss/" htmlUrl="https://mistral.ai/news/rss/" category="ai" />
+      <outline type="rss" text="Cohere Blog" title="Cohere Blog" xmlUrl="https://txt.cohere.com/rss/" htmlUrl="https://txt.cohere.com/rss/" category="ai" />
+      <outline type="rss" text="Hugging Face Blog" title="Hugging Face Blog" xmlUrl="https://huggingface.co/blog/feed.xml" htmlUrl="https://huggingface.co/blog/feed.xml" category="ai opensource ml" />
+      <outline type="rss" text="Stability AI" title="Stability AI" xmlUrl="https://stability.ai/news/rss" htmlUrl="https://stability.ai/news/rss" category="ai" />
+    </outline>
+    <outline text="AI &amp; Machine Learning - Commentary &amp; Analysis" title="AI &amp; Machine Learning - Commentary &amp; Analysis">
+      <outline type="rss" text="The Batch (deeplearning.ai)" title="The Batch (deeplearning.ai)" xmlUrl="https://www.deeplearning.ai/the-batch/feed/" htmlUrl="https://www.deeplearning.ai/the-batch/feed/" category="ai ml" />
+      <outline type="rss" text="Simon Willison" title="Simon Willison" xmlUrl="https://simonwillison.net/atom/everything/" htmlUrl="https://simonwillison.net/atom/everything/" category="ai tech programming" />
+      <outline type="rss" text="Stratechery" title="Stratechery" xmlUrl="https://stratechery.com/feed/" htmlUrl="https://stratechery.com/feed/" category="tech business ai" />
+      <outline type="rss" text="One Useful Thing (Ethan Mollick)" title="One Useful Thing (Ethan Mollick)" xmlUrl="https://www.oneusefulthing.org/feed" htmlUrl="https://www.oneusefulthing.org/feed" category="ai" />
+      <outline type="rss" text="AI Snake Oil" title="AI Snake Oil" xmlUrl="https://www.aisnakeoil.com/feed" htmlUrl="https://www.aisnakeoil.com/feed" category="ai critique" />
+    </outline>
+    <outline text="Philosophy &amp; Long-form Thinking" title="Philosophy &amp; Long-form Thinking">
+      <outline type="rss" text="Aeon Magazine" title="Aeon Magazine" xmlUrl="https://aeon.co/feed.rss" htmlUrl="https://aeon.co/feed.rss" category="philosophy culture science" />
+      <outline type="rss" text="Nautilus" title="Nautilus" xmlUrl="https://nautil.us/feed/" htmlUrl="https://nautil.us/feed/" category="science philosophy" />
+      <outline type="rss" text="The Browser" title="The Browser" xmlUrl="https://www.thebrowser.com/feed/" htmlUrl="https://www.thebrowser.com/feed/" category="culture longform" />
+      <outline type="rss" text="3 Quarks Daily" title="3 Quarks Daily" xmlUrl="https://3quarksdaily.com/feed" htmlUrl="https://3quarksdaily.com/feed" category="philosophy culture" />
+      <outline type="rss" text="The Marginalian (Brain Pickings)" title="The Marginalian (Brain Pickings)" xmlUrl="https://www.brainpickings.org/feed/" htmlUrl="https://www.brainpickings.org/feed/" category="philosophy culture" />
+      <outline type="rss" text="Philosophy Now" title="Philosophy Now" xmlUrl="https://philosophynow.org/rss/articles.xml" htmlUrl="https://philosophynow.org/rss/articles.xml" category="philosophy" />
+    </outline>
+    <outline text="World News &amp; Analysis" title="World News &amp; Analysis">
+      <outline type="rss" text="The Guardian - World" title="The Guardian - World" xmlUrl="https://www.theguardian.com/world/rss" htmlUrl="https://www.theguardian.com/world/rss" category="news" />
+      <outline type="rss" text="NPR World News" title="NPR World News" xmlUrl="https://feeds.npr.org/1004/rss.xml" htmlUrl="https://feeds.npr.org/1004/rss.xml" category="news" />
+      <outline type="rss" text="Reuters World" title="Reuters World" xmlUrl="https://www.reuters.com/rssFeed/worldNews" htmlUrl="https://www.reuters.com/rssFeed/worldNews" category="news" />
+      <outline type="rss" text="BBC Global News Podcast" title="BBC Global News Podcast" xmlUrl="https://www.bbc.co.uk/programmes/p002vsyw/episodes/downloads.rss" htmlUrl="https://www.bbc.co.uk/programmes/p002vsyw/episodes/downloads.rss" category="news podcast" />
+      <outline type="rss" text="The Atlantic" title="The Atlantic" xmlUrl="https://www.theatlantic.com/feed/all/" htmlUrl="https://www.theatlantic.com/feed/all/" category="news longform" />
+      <outline type="rss" text="ProPublica" title="ProPublica" xmlUrl="https://www.propublica.org/feeds/propublica/main" htmlUrl="https://www.propublica.org/feeds/propublica/main" category="news investigation" />
+      <outline type="rss" text="The New Yorker" title="The New Yorker" xmlUrl="https://www.newyorker.com/feed/everything" htmlUrl="https://www.newyorker.com/feed/everything" category="culture news" />
+    </outline>
+  </body>
+</opml>
