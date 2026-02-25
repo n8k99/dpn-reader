@@ -6,6 +6,9 @@ pub struct Style {
     pub title: &'static str,
     pub accent: &'static str,
     pub unread: &'static str,
+    pub headline: &'static str,
+    pub label: &'static str,
+    pub body: &'static str,
     pub reset: &'static str,
 }
 
@@ -16,6 +19,9 @@ impl Default for Style {
             title: "\x1b[38;2;0;245;255m",   // neon cyan
             accent: "\x1b[38;2;255;45;149m", // magenta pulse
             unread: "\x1b[38;2;255;184;0m",  // dragon gold
+            headline: "\x1b[38;2;0;245;255m",
+            label: "\x1b[38;2;255;45;149m",
+            body: "\x1b[38;2;255;184;0m",
             reset: "\x1b[0m",
         }
     }

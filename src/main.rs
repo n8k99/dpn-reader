@@ -31,6 +31,26 @@ struct FeedRow {
     title: String,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ArticleKind {
+    Headline,
+    Label,
+    Body,
+    Blank,
+}
+
+#[derive(Clone)]
+struct ArticleLine {
+    kind: ArticleKind,
+    text: String,
+}
+
+impl ArticleLine {
+    fn new(kind: ArticleKind, text: String) -> Self {
+        Self { kind, text }
+    }
+}
+
 #[derive(Debug, Clone)]
 struct ArticleRow {
     id: i64,
@@ -407,20 +427,26 @@ impl App {
         Ok(false)
     }
 
-    fn article_lines(article: &ArticleRow) -> Vec<String> {
-        let mut lines: Vec<String> = Vec::new();
-        lines.push(article.title.clone());
-        lines.push(format!("Feed: {}", article.feed_title));
-        lines.push(format!(
-            "Date: {}",
-            if article.published_at.is_empty() {
-                "unknown"
-            } else {
-                &article.published_at
-            }
+    fn article_lines(article: &ArticleRow) -> Vec<ArticleLine> {
+        let mut lines: Vec<ArticleLine> = Vec::new();
+        lines.push(ArticleLine::new(ArticleKind::Headline, article.title.clone()));
+        lines.push(ArticleLine::new(
+            ArticleKind::Label,
+            format!("Feed: {}", article.feed_title),
         ));
-        lines.push(format!("URL: {}", article.url));
-        lines.push(String::new());
+        lines.push(ArticleLine::new(
+            ArticleKind::Label,
+            format!(
+                "Date: {}",
+                if article.published_at.is_empty() {
+                    "unknown"
+                } else {
+                    &article.published_at
+                }
+            ),
+        ));
+        lines.push(ArticleLine::new(ArticleKind::Label, format!("URL: {}", article.url)));
+        lines.push(ArticleLine::new(ArticleKind::Blank, String::new()));
         let body = if article.content.trim().is_empty() {
             article.summary.clone()
         } else {
@@ -428,25 +454,25 @@ impl App {
         };
         let body = html_to_text(&body);
         for line in body.lines() {
-            lines.push(line.to_string());
+            lines.push(ArticleLine::new(ArticleKind::Body, line.to_string()));
         }
         lines
     }
 
-    fn wrap_lines_for_width(lines: &[String], width: usize) -> Vec<String> {
+    fn wrap_lines_for_width(lines: &[ArticleLine], width: usize) -> Vec<ArticleLine> {
         if width == 0 {
-            return vec![String::new()];
+            return vec![ArticleLine::new(ArticleKind::Blank, String::new())];
         }
 
-        let mut out: Vec<String> = Vec::new();
+        let mut out = Vec::new();
         for line in lines {
-            if line.trim().is_empty() {
-                out.push(String::new());
+            if line.text.trim().is_empty() {
+                out.push(ArticleLine::new(line.kind, String::new()));
                 continue;
             }
 
             let mut current = String::new();
-            for word in line.split_whitespace() {
+            for word in line.text.split_whitespace() {
                 if current.is_empty() {
                     if word.chars().count() <= width {
                         current.push_str(word);
@@ -455,13 +481,11 @@ impl App {
                         for ch in word.chars() {
                             chunk.push(ch);
                             if chunk.chars().count() >= width {
-                                out.push(chunk.clone());
+                                out.push(ArticleLine::new(line.kind, chunk.clone()));
                                 chunk.clear();
                             }
                         }
-                        if !chunk.is_empty() {
-                            current = chunk;
-                        }
+                        current = chunk;
                     }
                     continue;
                 }
@@ -471,7 +495,7 @@ impl App {
                     current.push(' ');
                     current.push_str(word);
                 } else {
-                    out.push(current);
+                    out.push(ArticleLine::new(line.kind, current.clone()));
                     if word.chars().count() <= width {
                         current = word.to_string();
                     } else {
@@ -479,7 +503,7 @@ impl App {
                         for ch in word.chars() {
                             chunk.push(ch);
                             if chunk.chars().count() >= width {
-                                out.push(chunk.clone());
+                                out.push(ArticleLine::new(line.kind, chunk.clone()));
                                 chunk.clear();
                             }
                         }
@@ -489,14 +513,37 @@ impl App {
             }
 
             if !current.is_empty() {
-                out.push(current);
+                out.push(ArticleLine::new(line.kind, current.clone()));
             }
         }
 
         if out.is_empty() {
-            out.push(String::new());
+            out.push(ArticleLine::new(ArticleKind::Blank, String::new()));
         }
         out
+    }
+
+    fn colorize_article_line(line: &ArticleLine, style: &Style) -> String {
+        match line.kind {
+            ArticleKind::Headline => format!("{}{}{}", style.headline, line.text, style.reset),
+            ArticleKind::Label => {
+                if let Some(idx) = line.text.find(':') {
+                    let (prefix, rest) = line.text.split_at(idx + 1);
+                    format!(
+                        "{}{}{}{}{}",
+                        style.label,
+                        prefix,
+                        style.reset,
+                        style.body,
+                        rest
+                    )
+                } else {
+                    format!("{}{}{}", style.body, line.text, style.reset)
+                }
+            }
+            ArticleKind::Body => format!("{}{}{}", style.body, line.text, style.reset),
+            ArticleKind::Blank => String::new(),
+        }
     }
 
     fn read_article_view(&mut self) -> Result<()> {
@@ -539,7 +586,8 @@ impl App {
                     break;
                 }
                 execute!(out, MoveTo(0, (i + 1) as u16))?;
-                write!(out, "{}", wrapped_lines[idx])?;
+                let colored = Self::colorize_article_line(&wrapped_lines[idx], &self.style);
+                write!(out, "{}", colored)?;
             }
             out.flush()?;
 
