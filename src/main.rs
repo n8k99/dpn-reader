@@ -1277,7 +1277,7 @@ fn save_comment_to_documents(article: &ArticleRow, comment: &str, tags: &[String
     let path = format!("{}{}-{}.md", THOUGHT_POLICE_PATH, ts, short);
 
     let frontmatter = serde_json::json!({
-        "title": format!("Reading Comment - {}", article.title),
+        "title": format!("Reading: {}", article.title),
         "status": "draft",
         "type": "reading_comment",
         "source_url": article.url,
@@ -1296,35 +1296,32 @@ fn save_comment_to_documents(article: &ArticleRow, comment: &str, tags: &[String
         comment.trim()
     );
 
-    let host = env::var("PG_HOST").unwrap_or_else(|_| "127.0.0.1".into());
-    let port = env::var("PG_PORT").unwrap_or_else(|_| "5432".into());
-    let user = env::var("PG_USER").unwrap_or_else(|_| "chronicle".into());
-    let pass = env::var("PG_PASSWORD").unwrap_or_else(|_| "chronicle2026".into());
-    let db = env::var("PG_DATABASE").unwrap_or_else(|_| "master_chronicle".into());
+    // Use dpn-api instead of direct Postgres connection
+    let api_url = env::var("DPN_API_URL").unwrap_or_else(|_| "https://api.n8k99.com".into());
+    let api_key = env::var("DPN_API_KEY").unwrap_or_default();
+    
+    let client = reqwest::blocking::Client::new();
+    let response = client
+        .post(format!("{}/documents", api_url))
+        .header("Authorization", format!("Bearer {}", api_key))
+        .header("Content-Type", "application/json")
+        .json(&serde_json::json!({
+            "path": path,
+            "title": format!("Reading: {}", article.title),
+            "frontmatter": frontmatter.to_string(),
+            "content": body,
+        }))
+        .send()
+        .with_context(|| "Could not connect to dpn-api for comment save")?;
 
-    let conn_str = format!(
-        "host={} port={} user={} password={} dbname={}",
-        host, port, user, pass, db
-    );
+    if !response.status().is_success() {
+        anyhow::bail!("API error: {} - {}", response.status(), response.text().unwrap_or_default());
+    }
 
-    let mut client = PgClient::connect(&conn_str, NoTls)
-        .with_context(|| "Could not connect to Postgres for comment save")?;
-
-    let row = client.query_one(
-        "
-        INSERT INTO documents(path, title, frontmatter, content)
-        VALUES ($1, $2, $3, $4)
-        RETURNING id
-        ",
-        &[
-            &path,
-            &format!("Reading Comment - {}", article.title),
-            &frontmatter.to_string(),
-            &body,
-        ],
-    )?;
-
-    let id: i64 = row.get(0);
+    let result: serde_json::Value = response.json()
+        .with_context(|| "Failed to parse API response")?;
+    
+    let id = result["id"].as_i64().unwrap_or(0);
     Ok(id)
 }
 
