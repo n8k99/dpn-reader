@@ -1276,16 +1276,15 @@ fn save_comment_to_documents(article: &ArticleRow, comment: &str, tags: &[String
     let short = if short.len() > 60 { &short[..60] } else { &short };
     let path = format!("{}{}-{}.md", THOUGHT_POLICE_PATH, ts, short);
 
-    let frontmatter = serde_json::json!({
-        "title": format!("Reading: {}", article.title),
-        "status": "draft",
-        "type": "reading_comment",
-        "source_url": article.url,
-        "source_feed": article.feed_title,
-        "source_published_at": article.published_at,
-        "tags": tags,
-        "created_at": now.to_rfc3339(),
-    });
+    let tags_str = tags.iter().map(|t| format!("\"{}\"", t)).collect::<Vec<_>>().join(", ");
+    let frontmatter = format!(
+        "---\ntitle: \"Reading: {}\"\nstatus: published\ntype: reading_comment\nsource_url: {}\nsource_feed: {}\ntags: [{}]\ncreated_at: {}\n---",
+        article.title.replace('"', "'"),
+        article.url,
+        article.feed_title,
+        tags_str,
+        now.to_rfc3339()
+    );
 
     let body = format!(
         "# Reading Comment\n\n## Source\n- Title: {}\n- Feed: {}\n- URL: {}\n- Published: {}\n\n## Comment\n\n{}\n",
@@ -1302,13 +1301,13 @@ fn save_comment_to_documents(article: &ArticleRow, comment: &str, tags: &[String
     
     let client = reqwest::blocking::Client::new();
     let response = client
-        .post(format!("{}/documents", api_url))
+        .post(format!("{}/api/documents", api_url))
         .header("Authorization", format!("Bearer {}", api_key))
         .header("Content-Type", "application/json")
         .json(&serde_json::json!({
             "path": path,
             "title": format!("Reading: {}", article.title),
-            "frontmatter": frontmatter.to_string(),
+            "frontmatter": frontmatter,
             "content": body,
         }))
         .send()
