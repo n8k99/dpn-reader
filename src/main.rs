@@ -10,11 +10,12 @@ use quick_xml::Reader as XmlReader;
 use regex::Regex;
 use reqwest::blocking::Client;
 use rusqlite::{params, Connection};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::cmp::min;
 use std::env;
 use std::fs;
-use std::io::{self, stdout, Write};
+use std::io::{self, BufRead, BufReader, stdout, Write};
+use std::os::unix::net::UnixStream;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::{Duration, Instant};
@@ -23,6 +24,7 @@ mod style;
 use style::{style_from_newsboat_if_available, Style};
 
 const THOUGHT_POLICE_PATH: &str = "Areas/Eckenrode Muziekopname/Executive/Thought Police/";
+const DPN_API_CLIENT_SOCK: &str = "/tmp/dpn-api-client.sock";
 
 #[derive(Debug, Clone)]
 struct FeedRow {
@@ -92,6 +94,45 @@ struct JsonFeedItem {
     content_text: Option<String>,
 }
 
+#[derive(Debug, Serialize)]
+struct IpcRequest<'a> {
+    cmd: &'a str,
+    resource: &'a str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    filter: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    data: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    limit: Option<i64>,
+}
+
+#[derive(Debug, Deserialize)]
+struct IpcResponse {
+    status: Option<String>,
+    data: Option<serde_json::Value>,
+    error: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct RefreshArticlesResult {
+    refreshed: usize,
+    failed: usize,
+}
+
+#[derive(Debug, Deserialize)]
+struct ApiArticle {
+    id: i64,
+    feed_id: Option<i64>,
+    title: Option<String>,
+    url: Option<String>,
+    content: Option<String>,
+    summary: Option<String>,
+    author: Option<String>,
+    published_at: Option<String>,
+    read_at: Option<String>,
+    feed_name: Option<String>,
+}
+
 struct App {
     conn: Connection,
     http: Client,
@@ -147,21 +188,15 @@ impl App {
                 .unwrap_or(900),
             last_refresh_at: Instant::now(),
         };
+        let (refreshed, failed) = refresh_articles()?;
         app.reload()?;
-        if app.articles.is_empty() && !app.feeds.is_empty() {
-            let (ins, fail) = refresh_all(&app.conn, &app.http)?;
-            app.reload()?;
-            app.last_refresh_at = Instant::now();
-            app.status = format!(
-                "Initial refresh: +{} new, failures={} (feeds={}, articles={})",
-                ins,
-                fail,
-                app.feeds.len(),
-                app.articles.len()
-            );
-        } else {
-            app.update_status_counts("Ready");
-        }
+        app.last_refresh_at = Instant::now();
+        app.status = format!(
+            "Startup refresh: {} feeds refreshed, {} failed (articles={})",
+            refreshed,
+            failed,
+            app.articles.len()
+        );
         Ok(app)
     }
 
@@ -171,13 +206,13 @@ impl App {
             self.feed_idx = self.feeds.len().saturating_sub(1);
         }
 
-        let feed_id = if self.global_mode {
+        let feed_title = if self.global_mode {
             None
         } else {
-            self.feeds.get(self.feed_idx).map(|f| f.id)
+            self.feeds.get(self.feed_idx).map(|f| f.title.as_str())
         };
 
-        self.articles = load_articles(&self.conn, feed_id, self.search.trim())?;
+        self.articles = load_articles(feed_title, self.search.trim())?;
         if self.article_idx >= self.articles.len() {
             self.article_idx = self.articles.len().saturating_sub(1);
         }
@@ -291,9 +326,14 @@ impl App {
                     }
                 }
             } else if self.last_refresh_at.elapsed() >= Duration::from_secs(self.auto_refresh_secs) {
-                let (ins, fail) = refresh_all(&self.conn, &self.http)?;
+                let (refreshed, failed) = refresh_articles()?;
                 self.reload()?;
-                self.status = format!("Auto refresh: +{} new, failures={}", ins, fail);
+                self.status = format!(
+                    "Auto refresh: {} feeds refreshed, {} failed (articles={})",
+                    refreshed,
+                    failed,
+                    self.articles.len()
+                );
                 self.last_refresh_at = Instant::now();
             }
         }
@@ -349,14 +389,13 @@ impl App {
                 }
             }
             KeyCode::Char('r') | KeyCode::Char('R') => {
-                self.status = "Refreshing feeds...".into();
-                let (ins, fail) = refresh_all(&self.conn, &self.http)?;
+                self.status = "Reloading articles...".into();
+                let (refreshed, failed) = refresh_articles()?;
                 self.reload()?;
                 self.status = format!(
-                    "Refresh done: +{} new, failures={} (feeds={}, articles={})",
-                    ins,
-                    fail,
-                    self.feeds.len(),
+                    "Refresh done: {} feeds refreshed, {} failed (articles={})",
+                    refreshed,
+                    failed,
                     self.articles.len()
                 );
                 self.last_refresh_at = Instant::now();
@@ -394,7 +433,7 @@ impl App {
                             .collect();
                         match save_comment_to_documents(&article, &comment, &tags_vec) {
                             Ok(id) => {
-                                mark_read(&self.conn, article.id)?;
+                                mark_read(article.id)?;
                                 self.reload()?;
                                 self.status = format!("Saved comment to Thought Police (doc #{})", id);
                             }
@@ -552,7 +591,7 @@ impl App {
             return Ok(());
         }
         let start_id = self.articles[self.article_idx].id;
-        let mut firehose = load_articles(&self.conn, None, self.search.trim())?;
+        let mut firehose = load_articles(None, self.search.trim())?;
         if firehose.is_empty() {
             self.status = "No articles in firehose view".into();
             return Ok(());
@@ -564,7 +603,7 @@ impl App {
         let mut offset = 0usize;
         loop {
             let article = firehose[firehose_idx].clone();
-            mark_read(&self.conn, article.id)?;
+            mark_read(article.id)?;
             if let Some(a) = firehose.get_mut(firehose_idx) {
                 a.is_read = 1;
             }
@@ -1170,52 +1209,36 @@ fn load_feeds(conn: &Connection) -> Result<Vec<FeedRow>> {
     Ok(rows)
 }
 
-fn load_articles(conn: &Connection, feed_id: Option<i64>, search: &str) -> Result<Vec<ArticleRow>> {
-    let mut sql = String::from(
-        "
-        SELECT a.id, a.feed_id, f.title, a.url, a.title,
-               COALESCE(a.published_at,''), a.published_ts,
-               COALESCE(a.summary,''), COALESCE(a.content,''), a.is_read
-        FROM articles a
-        JOIN feeds f ON f.id = a.feed_id
-        WHERE 1=1
-        ",
-    );
+fn load_articles(feed_title: Option<&str>, search: &str) -> Result<Vec<ArticleRow>> {
+    let filter = serde_json::json!({});
+    let req = IpcRequest {
+        cmd: "read",
+        resource: "articles",
+        filter: Some(filter),
+        data: None,
+        limit: Some(500),
+    };
+    let resp = send_ipc_request(&req)?;
+    let data = resp
+        .data
+        .ok_or_else(|| anyhow!("dpn-api-client returned no article data"))?;
+    let mut rows: Vec<ArticleRow> = serde_json::from_value::<Vec<ApiArticle>>(data)?
+        .into_iter()
+        .map(api_article_to_row)
+        .collect();
 
-    let mut bind_vals: Vec<String> = Vec::new();
-    if let Some(fid) = feed_id {
-        sql.push_str(" AND a.feed_id = ?");
-        bind_vals.push(fid.to_string());
+    if let Some(title) = feed_title {
+        rows.retain(|a| a.feed_title == title);
     }
-    if !search.is_empty() {
-        sql.push_str(" AND (a.title LIKE ? OR a.summary LIKE ? OR a.content LIKE ?)");
-        let q = format!("%{}%", search);
-        bind_vals.push(q.clone());
-        bind_vals.push(q.clone());
-        bind_vals.push(q);
-    }
-    sql.push_str(" ORDER BY a.published_ts DESC, a.id DESC LIMIT 500");
-
-    let mut stmt = conn.prepare(&sql)?;
-    let mut rows = Vec::new();
-
-    let params_iter = bind_vals.iter().map(|s| s as &dyn rusqlite::ToSql);
-    let mut q = stmt.query(rusqlite::params_from_iter(params_iter))?;
-    while let Some(r) = q.next()? {
-        rows.push(ArticleRow {
-            id: r.get(0)?,
-            feed_id: r.get(1)?,
-            feed_title: r.get(2)?,
-            url: r.get(3)?,
-            title: r.get(4)?,
-            published_at: r.get(5)?,
-            published_ts: r.get(6)?,
-            summary: r.get(7)?,
-            content: r.get(8)?,
-            is_read: r.get(9)?,
+    if !search.trim().is_empty() {
+        let q = search.to_lowercase();
+        rows.retain(|a| {
+            a.title.to_lowercase().contains(&q)
+                || a.summary.to_lowercase().contains(&q)
+                || a.content.to_lowercase().contains(&q)
+                || a.feed_title.to_lowercase().contains(&q)
         });
     }
-
     Ok(rows)
 }
 
@@ -1228,9 +1251,75 @@ fn add_feed(conn: &Connection, url: &str) -> Result<()> {
     Ok(())
 }
 
-fn mark_read(conn: &Connection, article_id: i64) -> Result<()> {
-    conn.execute("UPDATE articles SET is_read = 1 WHERE id = ?1", params![article_id])?;
+fn mark_read(article_id: i64) -> Result<()> {
+    let req = IpcRequest {
+        cmd: "write",
+        resource: "articles",
+        filter: None,
+        data: Some(serde_json::json!({
+            "id": article_id,
+            "read_at": "now"
+        })),
+        limit: None,
+    };
+    let _ = send_ipc_request(&req)?;
     Ok(())
+}
+
+fn send_ipc_request(req: &IpcRequest<'_>) -> Result<IpcResponse> {
+    let mut stream = UnixStream::connect(DPN_API_CLIENT_SOCK)
+        .with_context(|| format!("connect to {}", DPN_API_CLIENT_SOCK))?;
+    let payload = serde_json::to_string(req)?;
+    stream.write_all(payload.as_bytes())?;
+    stream.write_all(b"\n")?;
+    stream.flush()?;
+
+    let mut reader = BufReader::new(stream);
+    let mut line = String::new();
+    reader.read_line(&mut line)?;
+    if line.trim().is_empty() {
+        return Err(anyhow!("empty response from dpn-api-client"));
+    }
+    let resp: IpcResponse = serde_json::from_str(&line)?;
+    if resp.status.as_deref() == Some("error") {
+        return Err(anyhow!(
+            "{}",
+            resp.error.unwrap_or_else(|| "dpn-api-client request failed".into())
+        ));
+    }
+    Ok(resp)
+}
+
+fn refresh_articles() -> Result<(usize, usize)> {
+    let req = IpcRequest {
+        cmd: "refresh",
+        resource: "articles",
+        filter: None,
+        data: None,
+        limit: None,
+    };
+    let resp = send_ipc_request(&req)?;
+    let data = resp
+        .data
+        .ok_or_else(|| anyhow!("dpn-api-client returned no refresh result"))?;
+    let result: RefreshArticlesResult = serde_json::from_value(data)?;
+    Ok((result.refreshed, result.failed))
+}
+
+fn api_article_to_row(article: ApiArticle) -> ArticleRow {
+    let published_at = article.published_at.unwrap_or_default();
+    ArticleRow {
+        id: article.id,
+        feed_id: article.feed_id.unwrap_or_default(),
+        feed_title: article.feed_name.unwrap_or_else(|| "Unknown Feed".into()),
+        url: article.url.unwrap_or_default(),
+        title: article.title.unwrap_or_else(|| "Untitled".into()),
+        published_ts: parse_datetime_epoch(&published_at),
+        published_at,
+        summary: article.summary.unwrap_or_default(),
+        content: article.content.unwrap_or_default(),
+        is_read: if article.read_at.is_some() { 1 } else { 0 },
+    }
 }
 
 fn next_unread_index(items: &[ArticleRow], start: usize) -> Option<usize> {
@@ -1278,7 +1367,7 @@ fn save_comment_to_documents(article: &ArticleRow, comment: &str, tags: &[String
 
     let tags_str = tags.iter().map(|t| format!("\"{}\"", t)).collect::<Vec<_>>().join(", ");
     let frontmatter = format!(
-        "---\ntitle: \"Reading: {}\"\nstatus: published\ntype: reading_comment\nsource_url: {}\nsource_feed: {}\ntags: [{}]\ncreated_at: {}\n---",
+        "---\ntitle: \"Reading: {}\"\nstatus: draft\npublished: false\ntype: reading_comment\nsource_url: {}\nsource_feed: {}\ntags: [{}]\ncreated_at: {}\n---",
         article.title.replace('"', "'"),
         article.url,
         article.feed_title,
@@ -1295,32 +1384,23 @@ fn save_comment_to_documents(article: &ArticleRow, comment: &str, tags: &[String
         comment.trim()
     );
 
-    // Use dpn-api instead of direct Postgres connection
-    let api_url = env::var("DPN_API_URL").unwrap_or_else(|_| "https://api.n8k99.com".into());
-    let api_key = env::var("DPN_API_KEY").unwrap_or_default();
-    
-    let client = reqwest::blocking::Client::new();
-    let response = client
-        .post(format!("{}/api/documents", api_url))
-        .header("Authorization", format!("Bearer {}", api_key))
-        .header("Content-Type", "application/json")
-        .json(&serde_json::json!({
+    let req = IpcRequest {
+        cmd: "write",
+        resource: "documents",
+        filter: None,
+        data: Some(serde_json::json!({
             "path": path,
             "title": format!("Reading: {}", article.title),
             "frontmatter": frontmatter,
             "content": body,
-        }))
-        .send()
-        .with_context(|| "Could not connect to dpn-api for comment save")?;
-
-    if !response.status().is_success() {
-        anyhow::bail!("API error: {} - {}", response.status(), response.text().unwrap_or_default());
-    }
-
-    let result: serde_json::Value = response.json()
-        .with_context(|| "Failed to parse API response")?;
-    
-    let id = result["id"].as_i64().unwrap_or(0);
+        })),
+        limit: None,
+    };
+    let result = send_ipc_request(&req)?;
+    let id = result
+        .data
+        .and_then(|data| data.get("id").and_then(|id| id.as_i64()))
+        .unwrap_or(0);
     Ok(id)
 }
 
